@@ -1,5 +1,5 @@
-# Tensorflow-and-stock-prices
-The deep learning model is used to predict the stock prices of Apple Inc. The data are collected from Yahoo finance, and include the stock prices since the current CEO Tim Cook took over on 24th August 2011. The model is constantly trained on updated data from the Alphavantage finance API.
+# Continuous-Learning-and-stock-prices
+The machine learning model is used to predict the stock prices of Apple Inc. The data are collected from Yahoo finance, and include the stock prices since the current CEO Tim Cook took over on 24th August 2011. The model is constantly trained on updated data from the Alphavantage finance API.
 
 
 Currently, there are major innacuracies since the stock prices depends on a plethora of factors such as product launches and scandals which are not being considered. A future improvement is to combine the pricing model with an improvement of the NLP one I made in the past to overcome those weaknesses.
