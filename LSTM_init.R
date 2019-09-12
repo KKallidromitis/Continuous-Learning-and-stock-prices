@@ -1,3 +1,6 @@
+library(devtools)
+library(tensorflow)
+library(keras)
 #Data import
 setwd('C:/Users/kkarr/Documents/Share/Projects/Realtime_stocks')
 dt = read.csv("data_AAPL.csv") 
@@ -8,6 +11,7 @@ dt$date <- as.Date(dt$date,format = "%Y-%m-%d")
 print(t_index)
 set.seed(1)
 
+bin_acc = 0
 #Plot function
 plot_fun <- function(dt1,dt2,type,title,xlab,ylab,col,jpg,save) {
   if (save == 1) {jpeg(jpg+".jpg")}
@@ -47,47 +51,71 @@ binary <- function(dt){
   }
   return(dt)
 }
-#dt <-binary(dt)
+if (bin_acc ==1) {dt <-binary(dt)}
+head(dt)
+
+library(recipes)
+rec_obj <- recipe(close ~ ., dt) %>%
+  step_sqrt(close) %>%
+  step_center(close) %>%
+  step_scale(close) %>%
+  prep()
+
+dt <- bake(rec_obj, dt)
 head(dt)
 
 
-check <- function(p_in,p_out,data){
+addim <- function(mat){
+  dim(mat) <- c(dim(mat)[1],dim(mat)[2],1)
+  return(mat)
+}
+
+check <- function(p_in,p_out,data,bin_acc){
   p <- p_in+p_out
-  num <- length(data)-(p)+1
+  num <- length(data$close)-(p)+1
   mat <- matrix(1,num,p)
-  for(i in 1:(num)){mat[i,] <- data[i:(i+(p-1))]}
+  if (bin_acc==1){for(i in 1:(num)){mat[i,] <- c(data$close[i:(i+(p-2))],dt$action[(i+(p-2))])}
+  } else {for(i in 1:(num)){mat[i,] <- data$close[i:(i+(p-1))]}}
   #return(mat)
   return(list("x" = mat[,1:p_in], "y" = mat[,(p_in+1):(p)]))
 }
+x_dim <- 12
+y_dim <- 12
+if (bin_acc ==1) {mat <- check(x_dim,1,dt,1)
+} else {mat <- check(x_dim,y_dim,dt,0)}
 
-mat <- check(12,12,dt$close)
-x_train <- reshape_X_3d(mat$x)
-y_train <- reshape_X_3d(mat$y)
-nrow(x_train)
-dim(y_train)
+x_train <- addim(mat$x)
+if (bin_acc ==1){y_train <- mat$y
+} else {y_train <- addim(mat$y)}
+
+
+head(x_train)
+head(y_train)
+
+
+
 #NN
-library(tensorflow)
-library(keras)
-model <- keras_model_sequential() 
+batch = 50
+epochs = 10
 
+
+model <- keras_model_sequential() 
 model %>%
   layer_lstm(
     units = 128,
-    batch_input_shape = c(1, 12, 1)
-  )
+    batch_input_shape = c(batch, 12, 1),
+    return_sequences = TRUE,
+    dropout = 0.2,
+  )%>% time_distributed(layer_dense(units = 1))
 summary(model)
 
 model %>% compile(
   loss = "logcosh",
-  optimizer = optimizer_adam( lr= 0.02, decay = 1e-6 ),  
-  metrics = c('accuracy')
+  optimizer = optimizer_sgd( lr= 0.03, momentum = 0.9 ),  
+  metrics = c("mean_squared_error")
 )
 
-Epochs = 50   
-for(i in 1:Epochs ){
-  model %>% fit(x_train, y_train, epochs=1, batch_size=1, verbose=1, shuffle=FALSE)
-  model %>% reset_states()
-}
+history <-model %>% fit(x=x_train, y=y_train, epochs=epochs, batch_size=batch, verbose=1, shuffle=FALSE)
 
 
 
