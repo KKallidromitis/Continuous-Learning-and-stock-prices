@@ -64,9 +64,10 @@ rec_obj <- recipe(close ~ ., dt) %>%
 dt <- bake(rec_obj, dt)
 head(dt)
 
-
-addim <- function(mat){
-  dim(mat) <- c(dim(mat)[1],dim(mat)[2],1)
+addim <- function(mat,len){
+  if (len ==1){dim(mat) <- c(length(mat),1)
+  } else{dim(mat) <- c(dim(mat)[1],dim(mat)[2],1)}
+  
   return(mat)
 }
 
@@ -76,46 +77,50 @@ check <- function(p_in,p_out,data,bin_acc){
   mat <- matrix(1,num,p)
   if (bin_acc==1){for(i in 1:(num)){mat[i,] <- c(data$close[i:(i+(p-2))],dt$action[(i+(p-2))])}
   } else {for(i in 1:(num)){mat[i,] <- data$close[i:(i+(p-1))]}}
-  #return(mat)
+  sample_size = floor(0.8*nrow(mat))
+  View(mat)
+  return(train_ind)
+  
   return(list("x" = mat[,1:p_in], "y" = mat[,(p_in+1):(p)]))
 }
 x_dim <- 12
-y_dim <- 12
+y_dim <- 1
 if (bin_acc ==1) {mat <- check(x_dim,1,dt,1)
 } else {mat <- check(x_dim,y_dim,dt,0)}
+STOP
+x_train <- addim(mat$x,0)
 
-x_train <- addim(mat$x)
-if (bin_acc ==1){y_train <- mat$y
-} else {y_train <- addim(mat$y)}
-
-
-head(x_train)
-head(y_train)
+if (bin_acc ==1 | y_dim ==1){y_train <- addim(mat$y,1)
+} else {y_train <- addim(mat$y,0)}
+t_split=0.20
 
 
 
 #NN
-batch = 50
+batch = 100
 epochs = 10
-
+hidden = 50
 
 model <- keras_model_sequential() 
 model %>%
-  layer_lstm(
-    units = 128,
-    batch_input_shape = c(batch, 12, 1),
-    return_sequences = TRUE,
-    dropout = 0.2,
-  )%>% time_distributed(layer_dense(units = 1))
+  layer_lstm(units = hidden,batch_input_shape = c(batch,12,1),return_sequences=TRUE,dropout = 0)%>% 
+  layer_lstm(units = hidden,return_sequences=TRUE,dropout = 0)%>% 
+  layer_lstm(units = hidden,return_sequences=TRUE,dropout = 0)%>% 
+  layer_lstm(units = hidden,return_sequences=FALSE,dropout = 0)%>% 
+  layer_dense(units = 64, activation='relu')%>%
+  layer_dense(units = 1, activation = 'linear')
 summary(model)
 
 model %>% compile(
   loss = "logcosh",
-  optimizer = optimizer_sgd( lr= 0.03, momentum = 0.9 ),  
+  optimizer = 'sgd',  
   metrics = c("mean_squared_error")
 )
-
-history <-model %>% fit(x=x_train, y=y_train, epochs=epochs, batch_size=batch, verbose=1, shuffle=FALSE)
+dim(x_train)
+history <-model %>% fit(x=x_train, y=y_train, 
+                        epochs=epochs, batch_size=batch, 
+                        verbose=1, shuffle=FALSE,
+                        validation_split = 0.1)
 
 
 
