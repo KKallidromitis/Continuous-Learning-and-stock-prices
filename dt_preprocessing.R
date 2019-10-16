@@ -26,18 +26,12 @@ tail(dt)
 
 #Cross Validation and Rolling Origin split
 write.csv(dt,'data_pre_AAPL.csv',row.names=FALSE)
-dt=dt[1000:2026,]
+dt=dt[1000:length(dt),]
+s_mean = mean(dt$close)
+s_sd = sd(dt$close)
+dt$close = (dt$close-s_mean)/s_sd
 
-library(recipes)
-rec_obj <- recipe(close ~ ., dt) %>%
-  step_sqrt(close) %>%
-  step_center(close) %>%
-  step_scale(close) %>%
-  prep()
-
-dt <- bake(rec_obj, dt)
 head(dt)
-
 
 #Seperate data
 addim <- function(mat,len){
@@ -57,7 +51,7 @@ check <- function(p_in,p_out,data,bin_acc){
   val_size = floor(0.1*tr_size)
   tr_dt = mat[1:tr_size,]
   val_dt = tr_dt[(tr_size-val_size+1):tr_size,]
-  tr_dt = tr_dt[1:(tr_size-val_size),]
+  #tr_dt = tr_dt[1:(tr_size-val_size),]
   ts_dt = mat[(tr_size):(dim(mat)[1]-1),]
   
   return(list("x_train" = tr_dt[,1:p_in], "y_train" = tr_dt[,(p_in+1):(p)],
@@ -69,12 +63,14 @@ x_dim <- 12
 y_dim <- 1
 
 mat <- check(x_dim,y_dim,dt,bin_acc)
-
 for (n in 1:length(mat)){
   if (is.null(dim(mat[[n]]))){a = 1
   } else {a = 0 }
   print(a)
-  mat[[n]] <- addim(mat[[n]],a)
+  #mat[[n]] <- addim(mat[[n]],a)
 }
+ss = c(s_mean,s_sd)
 saveRDS(mat, "mat.RDS")
+saveRDS(ss, "ss.RDS")
+
 
